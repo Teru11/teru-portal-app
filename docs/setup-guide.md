@@ -1,24 +1,26 @@
-# 前提導入
+# 開発環境構築手順
 
-## Node
+## 前提導入
+
+### Node
 ```sh
 node -v
 → バージョンアップ：volta install node@22  → volta install pnpm
 ```
 
-## VScodeの設定
+### VScodeの設定
 ```sh
 Get-ExecutionPolicy -Scope CurrentUser
 → RemoteSigned
 ```
 
-## pnpm 導入
+### pnpm 導入
 ```sh
 npm install -g pnpm
 pnpm -v
 ```
 
-## VScode拡張機能
+### VScode拡張機能
 ```text
 ・Japanese Language Pack for VS Code（VScode日本語）
 
@@ -40,7 +42,7 @@ pnpm add -D eslint-plugin-prettier → Prettier の整形ルールを ESLint の
 ・Windsurf Plugin (formerly Codeium): AI Coding Autocomplete and Chat for Python, JavaScript, TypeScript, and more（無料AI補完）
 ```
 
-# プロジェクト作成
+## プロジェクト作成
 ```sh
 pnpm create next-app teru-portal-app
 
@@ -53,35 +55,35 @@ pnpm create next-app teru-portal-app
 ・Would you like to customize the import alias (@/ by default)?* → No （またはエンターキー）
 ```
 
-## 移動
+### 移動
 ```sh
 cd teru-portal-app
 ```
 
-## ドキュメント管理フォルダ作成
+### ドキュメント管理フォルダ作成
 ```sh
 mkdir docs
 ```
 
-# Git
+## Git
 
-## SSH確認
+### SSH確認
 ```sh
 # 接続確認
 ssh -T git@github.com
 ```
 
-## SSH登録
+### SSH登録
 ```sh
 # キー確認
 cat ~/.ssh/id_ed25519.pub
 → 出力したものをGitHubの設定のsshに登録
 ```
 
-## GitHubでプロジェクト作成
+### GitHubでプロジェクト作成
 [GitHub](https://github.com/Teru11/teru-portal-app)
 
-## プロジェクト新規プッシュ
+### プロジェクト新規プッシュ
 ```sh
 # 接続
 git remote add origin git@github.com:Teru11/teru-portal-app.git
@@ -96,5 +98,18 @@ git commit -m "新規作成"
 git branch -M main
 
 # GitHubへプッシュ
-git push -u origin main
+git push -u origin main --force
+```
+
+## Redmine
+
+### 開く
+```sh
+E:\develop\redmine\open-redmine.bat
+```
+[Redmine](http://localhost:3000/)
+
+### 直接切る方法
+```sh
+Stop-Process -Name "ruby" -Force
 ```
