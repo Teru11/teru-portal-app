@@ -14,58 +14,35 @@
 * **App Structure:** Route Handlers / Server Actions を前提とした構成
 * **Execution Model:** ローカル開発前提（現在の基本方針）
 
-## 開発環境の起動手順
-### 1. リポジトリのクローン
+## Getting Started
+
+### 1. リポジトリをクローン
 ```sh
 git clone git@github.com:Teru11/teru-portal-app.git
 cd teru-portal-app
 ```
 
-### 2. パッケージのインストール
+### 2. 依存パッケージをインストール
 ```sh
 pnpm install
 ```
 
-### 3. 環境変数の設定
-```sh
-cp .env.example .env
-```
-必要に応じて、DB接続先やアプリ設定を `.env` に定義する。
-
-### 4. 開発サーバーの起動
+### 3. 開発サーバーを起動
 ```sh
 pnpm dev
 ```
+
+ブラウザーで [http://localhost:3000](http://localhost:3000) を開く。
 
 ## 課題管理
 * 開発タスクや改善項目は Redmine または GitHub Issues 等で管理する
 * 実装方針・設計変更は関連するドキュメントと同期して更新する
 
 ## ドキュメント
-* [画面設計標準・デザインシステム設計書](ui-standard.md)
-* [API設計標準書](api-standard.md)
-* [データベース設計書](db-schema.md)
-* [開発環境構築手順](setup-guide.md)
-* [アーキテクチャ設計書](architecture.md)
-* [テスト方針](testing-policy.md)
-* [CI/CD 運用ガイドライン](ci-cd-guide.md)
-
-## 参照
-設計の詳細な方針は [アーキテクチャ設計書](architecture.md) を参照する。
-本アプリでは、ローカル開発を前提にしつつ、将来的な拡張を見据えた構成を採用する。
-
-## Getting Started
-
-First, run the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+* [画面設計標準・デザインシステム設計書](docs/ui-standard.md)
+* [API設計標準書](docs/api-standard.md)
+* [データベース設計書](docs/db-schema.md)
+* [開発環境構築手順](docs/setup-guide.md)
+* [アーキテクチャ設計書](docs/architecture.md)
+* [テスト方針](docs/testing-policy.md)
+* [CI/CD 運用ガイドライン](docs/ci-cd-guide.md)
