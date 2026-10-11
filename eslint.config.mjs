@@ -2,12 +2,13 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
+/** Next.js推奨ルールを適用し、生成ファイルをLint対象から外す設定です。 */
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // Override default ignores of eslint-config-next.
+  // eslint-config-nextの既定除外設定をこの一覧で管理します。
   globalIgnores([
-    // Default ignores of eslint-config-next:
+    // Next.jsの生成物と型定義はLint対象から除外します。
     ".next/**",
     "out/**",
     "build/**",

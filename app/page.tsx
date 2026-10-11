@@ -44,6 +44,15 @@ type ApiEnvelope<T> = {
   error?: { code: string; message: string };
 };
 
+/**
+ * API共通レスポンスを検証し、呼び出し元で扱いやすいdataだけを返します。
+ * HTTPエラーまたはAPIエラーの場合は、サーバーからのメッセージを例外にします。
+ * @template T 成功時に返されるデータの型
+ * @param {string} url 呼び出すAPIのURL
+ * @param {RequestInit} [init] HTTPメソッドやリクエスト本文などの追加設定
+ * @returns {Promise<T>} APIが返したdata
+ * @throws {Error} HTTP通信またはAPI処理が失敗した場合
+ */
 async function requestApi<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -56,6 +65,12 @@ async function requestApi<T>(url: string, init?: RequestInit): Promise<T> {
   return result.data;
 }
 
+/**
+ * ファイターIDに対応する公開画像を表示します。
+ * 画像名はIDと一致し、未登録画像があっても画面全体の表示を妨げません。
+ * @param {{ character: Character; size?: "normal" | "large" }} props 表示するファイターと画像サイズ
+ * @returns {import("react").JSX.Element} ファイターアイコン
+ */
 function FighterPortrait({ character, size = "normal" }: { character: Character; size?: "normal" | "large" }) {
   return (
     <span className={`fighter-portrait fighter-portrait--${size}`}>
@@ -72,26 +87,42 @@ function FighterPortrait({ character, size = "normal" }: { character: Character;
   );
 }
 
+/**
+ * スマブラ管理画面を構成し、使用キャラ・対策メモ・ファイター一覧を表示します。
+ * @returns {import("react").JSX.Element} スマブラ管理画面
+ */
 export default function Home() {
+  /** APIから取得したファイターマスターと、現在選択している自キャラ/対象を保持します。 */
   const [characters, setCharacters] = useState<Character[]>([]);
   const [myCharacterId, setMyCharacterId] = useState<number | null>(null);
   const [targetCharacterId, setTargetCharacterId] = useState<number | null>(null);
+
+  /** 自キャラごとのメモ一覧と、その一覧を取得したキャラIDを対にして保持します。 */
   const [notes, setNotes] = useState<StrategyNote[]>([]);
   const [notesCharacterId, setNotesCharacterId] = useState<number | null>(null);
+
+  /** 保存前に編集中のメモ本文と動画URLを保持します。 */
   const [draft, setDraft] = useState<{ noteId: number | null; content: string; url: string }>({ noteId: null, content: "", url: "" });
+
+  /** ファイター一覧、使用キャラ、対策対象それぞれの検索条件です。 */
   const [search, setSearch] = useState("");
   const [myFighterSearch, setMyFighterSearch] = useState("");
   const [targetSearch, setTargetSearch] = useState("");
   const [onlyRegistered, setOnlyRegistered] = useState(false);
   const [directoryVisible, setDirectoryVisible] = useState(true);
+
+  /** 一覧の編集対象、入力途中の値、保存中の行IDを保持します。 */
   const [editingCharacterId, setEditingCharacterId] = useState<number | null>(null);
   const [characterDraft, setCharacterDraft] = useState({ nickname: "", note: "", isRegistered: false });
   const [savingCharacterId, setSavingCharacterId] = useState<number | null>(null);
+
+  /** 通知表示、初期読み込み、メモ保存中の状態を保持します。 */
   const [notice, setNotice] = useState<{ kind: "error" | "success"; message: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  /** 取得済みメモが現在選択中の自キャラに属する場合だけ画面へ反映します。 */
   const activeNotes = notesCharacterId === myCharacterId ? notes : [];
   const registeredCharacters = characters.filter((character) => character.is_registered);
   const selectedCharacter = characters.find((character) => character.id === myCharacterId);
@@ -99,25 +130,34 @@ export default function Home() {
   const targetCharacter = selectedNote && characters.find((character) => character.id === targetCharacterId);
   const draftContent = selectedNote && draft.noteId === selectedNote.id ? draft.content : selectedNote?.content ?? "";
   const draftUrl = selectedNote && draft.noteId === selectedNote.id ? draft.url : selectedNote?.youtube_url ?? "";
+  /** ファイター一覧へ検索条件と「使用キャラのみ」条件を適用します。 */
   const visibleCharacters = characters.filter((character) => {
     const query = search.trim().toLocaleLowerCase("ja");
     return (!onlyRegistered || character.is_registered)
       && (!query || character.nickname.toLocaleLowerCase("ja").includes(query));
   });
+  /** 使用ファイター欄では登録済みキャラだけを略称で絞り込みます。 */
   const visibleMyFighters = registeredCharacters.filter((character) =>
     character.nickname.toLocaleLowerCase("ja").includes(myFighterSearch.trim().toLocaleLowerCase("ja")),
   );
+  /** 対策対象の候補を、現在の自キャラのメモから略称で絞り込みます。 */
   const visibleTargetNotes = activeNotes.filter((note) =>
     note.target_nickname.toLocaleLowerCase("ja").includes(targetSearch.trim().toLocaleLowerCase("ja")),
   );
 
+  /**
+   * ファイター一覧APIを再取得し、登録状態や編集後の値を同期します。
+   * @returns {Promise<Character[]>} 更新後のファイター一覧
+   */
   async function refreshCharacters() {
     const result = await requestApi<Character[]>("/api/sumabura/characters");
     setCharacters(result);
     return result;
   }
 
+  /** 初回表示時にファイターを取得し、最初の使用キャラを選択します。 */
   useEffect(() => {
+    // 画面が破棄された後に応答が返っても、state更新を行わないためのフラグです。
     let active = true;
     requestApi<Character[]>("/api/sumabura/characters")
       .then((result) => {
@@ -136,9 +176,14 @@ export default function Home() {
     };
   }, []);
 
+  /**
+   * 自キャラ変更時にそのキャラの対策メモを取得します。
+   * 以前の選択対象が新しいメモにもあれば維持し、なければ先頭を選択します。
+   */
   useEffect(() => {
     if (myCharacterId === null) return;
 
+    // 自キャラを連続して切り替えた場合、古い取得結果を無視します。
     let active = true;
     requestApi<StrategyNote[]>(`/api/sumabura/strategy-notes?my_character_id=${myCharacterId}`)
       .then((result) => {
@@ -159,6 +204,10 @@ export default function Home() {
     };
   }, [myCharacterId]);
 
+  /**
+   * 選択中の自キャラと対策対象のメモ本文・YouTube URLを保存します。
+   * @returns {Promise<void>} 保存処理の完了
+   */
   async function saveNote() {
     if (myCharacterId === null || targetCharacterId === null || !selectedNote) return;
     setSaving(true);
@@ -182,11 +231,22 @@ export default function Home() {
     }
   }
 
+  /**
+   * 一覧の編集行を開き、対象ファイターの現在値を編集フォームへ複写します。
+   * @param {Character} character 編集を開始するファイター
+   * @returns {void}
+   */
   function beginCharacterEdit(character: Character) {
     setEditingCharacterId(character.id);
     setCharacterDraft({ nickname: character.nickname, note: character.note ?? "", isRegistered: character.is_registered });
   }
 
+  /**
+   * 略称・説明・使用状態をファイター更新APIへまとめて保存します。
+   * 使用状態の解除後は別の登録済みファイターへ選択を移し、API失敗時は一覧を再同期します。
+   * @param {Character} character 更新対象のファイター
+   * @returns {Promise<void>} 更新処理の完了
+   */
   async function saveCharacter(character: Character) {
     const nickname = characterDraft.nickname.trim();
     const note = characterDraft.note || null;
@@ -237,6 +297,7 @@ export default function Home() {
 
   return (
     <div className={`portal-shell${sidebarOpen ? "" : " portal-shell--sidebar-closed"}`}>
+      {/* アプリ名、サイドバーの表示切替、主要メニューをまとめた共通ナビゲーション */}
       <header className="topbar">
         <div className="topbar-brand">
           <button className="icon-button sidebar-toggle" type="button" aria-label="メニューを切り替え" onClick={() => setSidebarOpen((open) => !open)}>
@@ -257,6 +318,7 @@ export default function Home() {
         </aside>
 
         <main className="main-content">
+          {/* ページタイトルと、下部のファイター一覧を表示/非表示にする操作 */}
           <div className="page-heading">
             <div className="heading-row">
               <h1>スマブラ</h1>
@@ -276,6 +338,7 @@ export default function Home() {
           )}
 
           <div className="feature-columns">
+          {/* 登録済み使用キャラを略称で検索し、選択中キャラを切り替える領域 */}
           <section className="section-block" aria-labelledby="my-fighters-title">
             <div className="section-heading">
               <div className="section-title-wrap"><div><h2 id="my-fighters-title">使用ファイター選択</h2></div></div>
@@ -294,6 +357,7 @@ export default function Home() {
             </div>
           </section>
 
+          {/* 略称検索の候補から対戦相手を選び、メモとYouTube URLを編集する領域 */}
           <section className="section-block" aria-labelledby="matchup-title">
             <div className="section-heading">
               <div className="section-title-wrap"><div><h2 id="matchup-title">対策対象ファイター</h2></div></div>
@@ -339,6 +403,7 @@ export default function Home() {
             </div>
           </section>
 
+          {/* 全ファイターの絞り込み、使用状態の確認、略称/説明/登録状態の編集 */}
           <section className="section-block directory-section" aria-label="ファイター一覧">
             {directoryVisible && <div className="section-heading section-heading--directory">
               <div className="directory-title-row">

@@ -1,8 +1,15 @@
 import { ApiError, errorResponse, parseInteger, parseJsonBody, successResponse } from "../../../../lib/api-response";
 import { getCharacters, updateCharacter } from "../../../../services/sumabura-service";
 
+/** PostgreSQLドライバーを使うため、このRoute HandlerをNode.jsで実行します。 */
 export const runtime = "nodejs";
 
+/**
+ * ファイター一覧を取得します。
+ * nicknameは完全一致、registered_only=trueは使用登録済みだけに絞り込みます。
+ * @param {Request} request クエリ文字列を含むHTTPリクエスト
+ * @returns {Promise<Response>} 共通形式のファイター一覧またはエラー
+ */
 export async function GET(request: Request) {
   try {
     const url = new URL(request.url);
@@ -19,6 +26,12 @@ export async function GET(request: Request) {
   }
 }
 
+/**
+ * ファイターの略称・説明・使用登録状態をまとめて更新します。
+ * 指定された値を検証してからServiceへ渡し、DB更新結果を共通形式で返します。
+ * @param {Request} request 更新対象IDと変更項目を含むJSONリクエスト
+ * @returns {Promise<Response>} 更新後のファイターまたは共通形式のエラー
+ */
 export async function PUT(request: Request) {
   try {
     const body = await parseJsonBody(request);
@@ -29,6 +42,7 @@ export async function PUT(request: Request) {
       throw new ApiError(400, "BAD_REQUEST", "更新する項目を1つ以上指定してください。");
     }
 
+    // 本文に含まれる全項目を検証し、部分更新も1回のService呼び出しにまとめます。
     const id = parseInteger(body.id, "id");
     const update: { note?: string | null; nickname?: string; isRegistered?: boolean } = {};
     if (hasNote) {
