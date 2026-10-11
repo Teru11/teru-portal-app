@@ -5,6 +5,7 @@ import { getCharacters, updateCharacter } from "../../../../services/sumabura-se
 export const runtime = "nodejs";
 
 /**
+ * ファイター一覧取得API（GET /api/sumabura/characters）。
  * ファイター一覧を取得します。
  * nicknameは完全一致、registered_only=trueは使用登録済みだけに絞り込みます。
  * @param {Request} request クエリ文字列を含むHTTPリクエスト
@@ -27,6 +28,7 @@ export async function GET(request: Request) {
 }
 
 /**
+ * ファイター更新API（PUT /api/sumabura/characters）。
  * ファイターの略称・説明・使用登録状態をまとめて更新します。
  * 指定された値を検証してからServiceへ渡し、DB更新結果を共通形式で返します。
  * @param {Request} request 更新対象IDと変更項目を含むJSONリクエスト

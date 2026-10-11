@@ -29,6 +29,7 @@ function validateYoutubeUrl(value: unknown): string | null {
 }
 
 /**
+ * 対策メモ取得API（GET /api/sumabura/strategy-notes）。
  * 指定した自キャラの対策メモを取得します。
  * target_nicknameがあれば対象略称で完全一致検索します。
  * @param {Request} request 自キャラIDと任意の対象略称を含むHTTPリクエスト
@@ -46,6 +47,7 @@ export async function GET(request: Request) {
 }
 
 /**
+ * 対策メモ更新API（PUT /api/sumabura/strategy-notes）。
  * 自キャラと対策対象の既存メモを更新します。
  * URLを含む全項目を検証し、メモが存在しない場合は404を返します。
  * @param {Request} request 自キャラID、対象ID、内容、YouTube URLを含むJSONリクエスト
