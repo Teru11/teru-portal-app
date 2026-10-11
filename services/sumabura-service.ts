@@ -1,3 +1,4 @@
+import type { PoolClient } from "pg";
 import { ApiError } from "../lib/api-response";
 import { getPool } from "../lib/db";
 
@@ -50,9 +51,37 @@ export async function getCharacters(
 }
 
 /**
+ * 手動投入後に遅れているSERIALシーケンスをテーブルの最大IDまで進めます。
+ * 排他ロック中に確認することで、同期と同時に別の登録処理が走るのを防ぎます。
+ * @param {PoolClient} client 実行中のDBトランザクション
+ * @param {"user_characters" | "strategy_notes"} tableName 同期対象のテーブル名
+ * @returns {Promise<void>}
+ */
+async function synchronizeSerialSequence(
+  client: PoolClient,
+  tableName: "user_characters" | "strategy_notes",
+): Promise<void> {
+  const qualifiedTable = `sumabura.${tableName}`;
+  const qualifiedSequence = `sumabura.${tableName}_id_seq`;
+  await client.query(`LOCK TABLE ${qualifiedTable} IN EXCLUSIVE MODE`);
+  const state = await client.query<{ max_id: number | null; last_value: number }>(
+    `SELECT (SELECT MAX(id)::integer FROM ${qualifiedTable}) AS max_id,
+            last_value::integer
+       FROM ${qualifiedSequence}`,
+  );
+  const { max_id: maxId, last_value: lastValue } = state.rows[0];
+  if (maxId !== null && maxId > lastValue) {
+    await client.query(
+      "SELECT setval(pg_get_serial_sequence($1, 'id'), $2, TRUE)",
+      [qualifiedTable, maxId],
+    );
+  }
+}
+
+/**
  * ファイター情報と使用キャラ登録状態を1つのトランザクションで更新します。
- * 使用登録時は既存行を重複作成せず、不足する対策メモだけを初期化します。
- * 登録解除は論理削除とし、既存の対策メモは保持します。
+ * 使用登録時は既存行を再有効化し、行がない場合だけ新規作成します。
+ * 不足する対策メモだけを初期化し、登録解除は論理削除として扱います。
  * @param {number} id 更新対象のファイターID
  * @param {{ note?: string | null; nickname?: string; isRegistered?: boolean }} update 変更する項目
  * @returns {Promise<Character>} 更新後のファイター情報と使用登録状態
@@ -67,7 +96,7 @@ export async function updateCharacter(
     // マスター情報と登録状態、初期メモを一括で確定または取消できるようにします。
     await client.query("BEGIN");
     const character = await client.query(
-      "SELECT id FROM sumabura.characters WHERE id = $1",
+      "SELECT id FROM sumabura.characters WHERE id = $1 FOR UPDATE",
       [id],
     );
     if (!character.rows[0]) {
@@ -93,20 +122,30 @@ export async function updateCharacter(
     }
 
     if (update.isRegistered === true) {
-      // 登録を冪等にし、削除済みメモや記入済みメモを上書きせず未作成分だけ補います。
-      const existing = await client.query(
-        `SELECT id FROM sumabura.user_characters
-          WHERE character_id = $1 AND is_deleted = FALSE
+      // 使用登録済みの行を優先して取得し、再登録時はその行を再利用します。
+      const registration = await client.query<{ id: number; is_deleted: boolean | null }>(
+        `SELECT id, is_deleted FROM sumabura.user_characters
+          WHERE character_id = $1
+          ORDER BY is_deleted ASC, id DESC
+          LIMIT 1
           FOR UPDATE`,
         [id],
       );
-      if (!existing.rows[0]) {
+      if (registration.rows[0] && registration.rows[0].is_deleted !== false) {
+        await client.query(
+          "UPDATE sumabura.user_characters SET is_deleted = FALSE WHERE id = $1",
+          [registration.rows[0].id],
+        );
+      } else if (!registration.rows[0]) {
+        await synchronizeSerialSequence(client, "user_characters");
         await client.query(
           `INSERT INTO sumabura.user_characters (character_id, is_deleted)
            VALUES ($1, FALSE)`,
           [id],
         );
       }
+      // 既存内容を保護しつつ、未作成の対策メモだけを追加します。
+      await synchronizeSerialSequence(client, "strategy_notes");
       await client.query(
         `INSERT INTO sumabura.strategy_notes
            (my_character_id, target_character_id, content, youtube_url)
