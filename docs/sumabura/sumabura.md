@@ -75,7 +75,7 @@
 | `id` | ID | SERIAL | PRIMARY KEY | 一意の識別子 |
 | `my_character_id` | 自キャラID | INTEGER | NOT NULL | 自分の使用キャラID（`characters.id` 参照） |
 | `target_character_id` | 対策対象キャラID | INTEGER | NOT NULL | 対策対象のキャラID（`characters.id` 参照） |
-| `content` | 対策内容 | TEXT | NOT NULL | 対策メモ（プレーンテキスト）（改行可） |
+| `content` | 対策内容 | TEXT | NULL | 対策メモ（プレーンテキスト）（改行可） |
 | `youtube_url` | YouTube URL | VARCHAR(255) | NULL | 立ち回りや対策の参考YouTube動画URL |
 | `updated_at` | 最終更新日時 | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP | 最終更新日時 |
 

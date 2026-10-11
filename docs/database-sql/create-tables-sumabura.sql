@@ -35,7 +35,7 @@ CREATE TABLE sumabura.strategy_notes (
     id SERIAL PRIMARY KEY,
     my_character_id INTEGER NOT NULL,
     target_character_id INTEGER NOT NULL,
-    content TEXT NOT NULL,
+    content TEXT,
     youtube_url VARCHAR(255),
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
