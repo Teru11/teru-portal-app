@@ -75,8 +75,7 @@ API の主要な正常系と異常系を軽く確認する。
 GitHub Actions では、最低限の静的確認を行う。
 
 * `pnpm install`
-* Prisma Client generate
-* `pnpm exec tsc --noEmit`
+* `pnpm type-check`
 * `pnpm lint`
 * `pnpm build`
 

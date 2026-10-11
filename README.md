@@ -10,7 +10,7 @@
 ## 技術スタック
 * **Frontend / Framework:** Next.js (App Router), TypeScript
 * **Styling:** Tailwind CSS
-* **Database / ORM:** PostgreSQL, Prisma（予定）
+* **Database:** PostgreSQL 15.4 (`pg`)
 * **App Structure:** Route Handlers / Server Actions を前提とした構成
 * **Execution Model:** ローカル開発前提（現在の基本方針）
 
@@ -27,7 +27,16 @@ cd teru-portal-app
 pnpm install
 ```
 
-### 3. 開発サーバーを起動
+### 3. DB接続を設定
+`.env.example`を`.env.local`へコピーし、ローカルPostgreSQLのユーザー名とパスワードに合わせて`DATABASE_URL`を設定する。
+
+```sh
+Copy-Item .env.example .env.local
+```
+
+`sumabura.characters`が空の場合は、`docs/database-sql/seed-characters.sql`を一度実行してファイターマスターを登録する。このSQLは既存IDの行を上書きしない。
+
+### 4. 開発サーバーを起動
 ```sh
 pnpm dev
 ```

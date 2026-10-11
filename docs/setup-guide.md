@@ -65,6 +65,22 @@ cd teru-portal-app
 mkdir docs
 ```
 
+## PostgreSQL接続設定
+
+プロジェクトルートの`.env.example`を`.env.local`へコピーし、ローカルPostgreSQLの接続情報に合わせて`DATABASE_URL`を設定する。
+
+```powershell
+Copy-Item .env.example .env.local
+```
+
+`.env.local`の値はGitへ登録しない。`sumabura.characters`が空の場合は、`docs/database-sql/seed-characters.sql`を実行してファイターマスターを登録する。このSQLは既存のファイターIDを上書きしない。
+
+```text
+DATABASE_URL=postgresql://<ユーザー名>:<パスワード>@localhost:5432/teru-portal
+```
+
+`<ユーザー名>`と`<パスワード>`は、ローカルPostgreSQLに設定した値へ置き換える。
+
 ## Git
 
 ### SSH確認

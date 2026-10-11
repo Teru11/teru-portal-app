@@ -25,10 +25,9 @@
         │
         ├─ Push / PR 作成 ──► CI Workflow
         │                       ├─ 1. pnpm install
-        │                       ├─ 2. Prisma Client generate
-        │                       ├─ 3. Type Check
-        │                       ├─ 4. Lint
-        │                       └─ 5. Build Check
+        │                       ├─ 2. Type Check
+        │                       ├─ 3. Lint
+        │                       └─ 4. Build Check
         │
         └─ マージ後 ───────► 変更確認 / 次の作業へ進行
                                 ├─ 1. 変更内容のレビュー
@@ -46,7 +45,6 @@ CI は PR 作成時および `main` ブランチへの push 時に実行する�
 
 * Node.js 22
 * pnpm
-* Prisma Client の生成
 * TypeScript 型チェック
 * ESLint による静的解析
 * Next.js の production build
@@ -56,10 +54,9 @@ CI は PR 作成時および `main` ブランチへの push 時に実行する�
 1. リポジトリの取得
 2. Node.js と pnpm のセットアップ
 3. 依存関係のインストール
-4. Prisma Client の生成
-5. `tsc --noEmit` による型チェック
-6. `next lint` による静的解析
-7. `next build` によるビルド検証
+4. `pnpm type-check` による型チェック
+5. `pnpm lint` による静的解析
+6. `pnpm build` によるビルド検証
 
 ---
 
@@ -109,7 +106,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11.23.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -120,19 +117,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma Client
-        run: pnpm exec prisma generate
-
       - name: Type Check
-        run: pnpm exec tsc --noEmit
+        run: pnpm type-check
 
       - name: Lint Check
         run: pnpm lint
 
       - name: Build Test
         run: pnpm build
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
 ```
 
 ---
@@ -147,9 +139,8 @@ CI 上で実行するコマンドは、`package.json` に統一する。
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "type-check": "tsc --noEmit",
-    "prisma:generate": "prisma generate"
+    "lint": "eslint",
+    "type-check": "tsc --noEmit"
   }
 }
 ```
@@ -161,7 +152,7 @@ CI 上で実行するコマンドは、`package.json` に統一する。
 * `main` に直接 push しない
 * PR を作成してレビューを通す
 * CI が通過しないコードはマージしない
-* DB 変更がある場合は、Prisma マイグレーションを必ず明示する
+* DB 変更がある場合は、対応する SQL ファイルを必ず明示する
 * 環境変数は `GitHub Secrets` で管理し、ソースコードに直接埋め込まない
 * 本番デプロイ前には、少なくともビルドと型チェックが成功していることを確認する
 
@@ -173,7 +164,7 @@ CI 上で実行するコマンドは、`package.json` に統一する。
 
 * `deploy-dev.yml`: 開発環境向け自動デプロイ
 * `deploy-prod.yml`: 本番環境向けデプロイ
-* `prisma-migrate.yml`: DB マイグレーション専用ジョブ
+* `database-migrate.yml`: DB マイグレーション専用ジョブ
 * `security-scan.yml`: 脆弱性や依存関係の監査
 
 現時点では、GitHub での品質確認と変更管理を重視し、クラウドデプロイは段階的に導入する。

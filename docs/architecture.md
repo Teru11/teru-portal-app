@@ -49,7 +49,7 @@ src/
 │       ├── characterService.ts
 │       └── strategyNoteService.ts
 ├── lib/                              # 共通ユーティリティ
-│   ├── prisma.ts                     # Prisma Client
+│   ├── db.ts                         # PostgreSQL connection pool
 │   ├── api-client.ts                 # フロントエンド用 Fetch ラッパー
 │   └── ...
 ├── types/                            # 共通型定義
@@ -88,7 +88,7 @@ src/
 ### 4.3 Service 層
 
 * ビジネスロジックの実装
-* Prisma を使った DB アクセス
+* PostgreSQL ドライバー (`pg`) を使った DB アクセス
 * UI と DB の橋渡し
 
 対象:
@@ -96,13 +96,12 @@ src/
 
 ### 4.4 Data / DB 層
 
-* Prisma の定義とマイグレーション
-* DB との接続管理
+* PostgreSQL のテーブル定義と SQL
+* DB との接続管理 (`lib/db.ts`)
 * 論理削除や検索条件の統制
 
 対象:
-* `lib/prisma.ts`
-* Prisma schema
+* `lib/db.ts`
 
 ---
 
@@ -111,7 +110,7 @@ src/
 依存方向は以下を基本とする。
 
 ```text
-UI → API → Service → Prisma / DB
+UI → API → Service → PostgreSQL (`pg`)
 ```
 
 * UI は DB に直接依存しない
@@ -178,7 +177,7 @@ src/app/api/[feature]/route.ts
         ↓
 services/[feature]/...
         ↓
-Prisma / DB
+PostgreSQL (`pg`)
 ```
 
 これにより、API の命名規則、レスポンス形式、DB アクセスの責務が一致する。
