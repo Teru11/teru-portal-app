@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import {
   AlertCircle,
   Check,
@@ -140,10 +140,46 @@ export default function Home() {
   const visibleMyFighters = registeredCharacters.filter((character) =>
     character.nickname.toLocaleLowerCase("ja").includes(myFighterSearch.trim().toLocaleLowerCase("ja")),
   );
-  /** 対策対象の候補を、現在の自キャラのメモから略称で絞り込みます。 */
-  const visibleTargetNotes = activeNotes.filter((note) =>
-    note.target_nickname.toLocaleLowerCase("ja").includes(targetSearch.trim().toLocaleLowerCase("ja")),
-  );
+  /**
+   * 略称の入力値を対象へ反映し、候補一覧なしで一致するファイターを選択します。
+   * 他の略称が入力値から始まる場合は、入力途中の誤選択を避けて確定を待ちます。
+   * @param {string} value 検索欄の略称
+   * @param {boolean} [confirm=false] Enterによる明示的な検索確定かどうか
+   * @returns {void}
+   */
+  function selectTargetFromSearch(value: string, confirm = false) {
+    setTargetSearch(value);
+    const query = value.trim().toLocaleLowerCase("ja");
+    if (!query) return;
+
+    const matches = activeNotes.filter((note) =>
+      note.target_nickname.toLocaleLowerCase("ja").startsWith(query),
+    );
+    const exactMatch = matches.find((note) => note.target_nickname.toLocaleLowerCase("ja") === query);
+    const hasLongerMatch = matches.some((note) => note.target_nickname.toLocaleLowerCase("ja") !== query);
+    const selectedNote = exactMatch && (!hasLongerMatch || confirm)
+      ? exactMatch
+      : confirm && matches.length === 1
+        ? matches[0]
+        : undefined;
+
+    if (selectedNote) {
+      setTargetCharacterId(selectedNote.target_character_id);
+      setTargetSearch("");
+    }
+  }
+
+  /**
+   * Enterキーで対策対象検索を確定し、一致対象をメモ編集欄へ反映します。
+   * @param {KeyboardEvent<HTMLInputElement>} event 検索欄のキー入力イベント
+   * @returns {void}
+   */
+  function handleTargetSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      selectTargetFromSearch(targetSearch, true);
+    }
+  }
 
   /**
    * ファイター一覧APIを再取得し、登録状態や編集後の値を同期します。
@@ -367,22 +403,7 @@ export default function Home() {
             <div className="matchup-layout">
               <div className="target-panel">
                 <div className="target-picker">
-                  <label className="list-filter target-filter"><Search size={15} /><input value={targetSearch} onChange={(event) => setTargetSearch(event.target.value)} placeholder="略称で絞り込み..." aria-label="対策対象を略称で絞り込み" /></label>
-                  {targetSearch.trim() && <div className="target-results" role="listbox" aria-label="検索結果">
-                    {visibleTargetNotes.map((note) => {
-                    const character = characters.find((item) => item.id === note.target_character_id);
-                    if (!character) return null;
-                    return <button className="target-result" type="button" role="option" aria-selected={character.id === targetCharacterId} onClick={() => {
-                      setTargetCharacterId(character.id);
-                      setTargetSearch("");
-                    }} key={character.id}>
-                      <FighterPortrait character={character} />
-                      <span className="target-row-name">{character.name}<small>{character.nickname}</small></span>
-                    </button>;
-                  })}
-                    {!loading && visibleTargetNotes.length === 0 && <div className="target-results-empty">一致するファイターがいません。</div>}
-                    {loading && <div className="target-results-empty">ファイターを読み込み中...</div>}
-                  </div>}
+                  <label className="list-filter target-filter"><Search size={15} /><input value={targetSearch} onChange={(event) => selectTargetFromSearch(event.target.value)} onKeyDown={handleTargetSearchKeyDown} placeholder="略称で絞り込み..." aria-label="対策対象を略称で絞り込み" /></label>
                 </div>
               </div>
 
