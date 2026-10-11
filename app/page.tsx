@@ -13,6 +13,7 @@ import {
   Gamepad2,
   Menu,
   Pencil,
+  Play,
   Save,
   Search,
   Swords,
@@ -71,20 +72,42 @@ async function requestApi<T>(url: string, init?: RequestInit): Promise<T> {
  * @param {{ character: Character; size?: "normal" | "large" }} props 表示するファイターと画像サイズ
  * @returns {import("react").JSX.Element} ファイターアイコン
  */
-function FighterPortrait({ character, size = "normal" }: { character: Character; size?: "normal" | "large" }) {
+function FighterPortrait({ character }: { character: Character }) {
   return (
-    <span className={`fighter-portrait fighter-portrait--${size}`}>
+    <span className="fighter-portrait">
       <Image
         src={`/characters/${character.id}.png`}
         alt=""
-        width={size === "large" ? 84 : 54}
-        height={size === "large" ? 84 : 54}
+        width={54}
+        height={54}
         onError={(event) => {
           event.currentTarget.style.visibility = "hidden";
         }}
       />
     </span>
   );
+}
+
+/**
+ * YouTube共有URLから、埋め込みに使えるURLを生成します。
+ * 許可したYouTubeホストと11文字の動画ID以外は埋め込まず、枠だけ表示します。
+ * @param {string} value 入力または保存済みのYouTube URL
+ * @returns {string | null} nocookie形式の埋め込みURL。変換できない場合はnull
+ */
+function getYoutubeEmbedUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    const allowedHosts = ["youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "www.youtube-nocookie.com"];
+    if (!allowedHosts.includes(url.hostname)) return null;
+
+    const videoId = url.hostname === "youtu.be"
+      ? url.pathname.split("/").filter(Boolean)[0]
+      : url.searchParams.get("v") ?? url.pathname.match(/\/(?:embed|shorts|live)\/([^/]+)/)?.[1];
+    if (!videoId || !/^[A-Za-z0-9_-]{11}$/.test(videoId)) return null;
+    return `https://www.youtube-nocookie.com/embed/${videoId}`;
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -130,6 +153,8 @@ export default function Home() {
   const targetCharacter = selectedNote && characters.find((character) => character.id === targetCharacterId);
   const draftContent = selectedNote && draft.noteId === selectedNote.id ? draft.content : selectedNote?.content ?? "";
   const draftUrl = selectedNote && draft.noteId === selectedNote.id ? draft.url : selectedNote?.youtube_url ?? "";
+  /** 許可済み形式のURLがあれば埋め込み先を作り、それ以外は仮枠にします。 */
+  const youtubeEmbedUrl = draftUrl ? getYoutubeEmbedUrl(draftUrl) : null;
   /** ファイター一覧へ検索条件と「使用キャラのみ」条件を適用します。 */
   const visibleCharacters = characters.filter((character) => {
     const query = search.trim().toLocaleLowerCase("ja");
@@ -393,7 +418,7 @@ export default function Home() {
             </div>
           </section>
 
-          {/* 略称検索の候補から対戦相手を選び、メモとYouTube URLを編集する領域 */}
+          {/* 略称入力で対戦相手を直接選び、メモとYouTube URLを編集する領域 */}
           <section className="section-block" aria-labelledby="matchup-title">
             <div className="section-heading">
               <div className="section-title-wrap"><div><h2 id="matchup-title">対策対象ファイター</h2></div></div>
@@ -410,15 +435,17 @@ export default function Home() {
               <div className="editor-panel">
                 {targetCharacter ? <>
                   <div className="editor-heading">
-                    <FighterPortrait character={targetCharacter} size="large" />
+                    <FighterPortrait character={targetCharacter} />
                     <div className="editor-fighter-name"><h3>{targetCharacter.name}</h3></div>
-                    <span className="editor-card-icon"><Swords size={17} /></span>
+                    <button className="button button--primary" type="button" onClick={() => void saveNote()} disabled={!selectedNote || saving}><Save size={16} />{saving ? "保存中..." : "変更を保存"}</button>
                   </div>
                   <label className="field-label" htmlFor="strategy-content">対策メモ</label>
                   <textarea id="strategy-content" className="strategy-textarea" value={draftContent} onChange={(event) => selectedNote && setDraft({ noteId: selectedNote.id, content: event.target.value, url: draftUrl })} placeholder="立ち回り、警戒する技、確定反撃など..." disabled={!selectedNote} />
                   <label className="field-label youtube-label" htmlFor="youtube-url">YouTube URL</label>
                   <div className="url-field"><span className="youtube-play">▶</span><input id="youtube-url" type="url" value={draftUrl} onChange={(event) => selectedNote && setDraft({ noteId: selectedNote.id, content: draftContent, url: event.target.value })} placeholder="https://www.youtube.com/..." disabled={!selectedNote} /></div>
-                  <div className="editor-footer editor-footer--actions"><button className="button button--primary" type="button" onClick={() => void saveNote()} disabled={!selectedNote || saving}><Save size={16} />{saving ? "保存中..." : "変更を保存"}</button></div>
+                  <div className="video-frame">
+                    {youtubeEmbedUrl ? <iframe src={youtubeEmbedUrl} title={`${targetCharacter.name}の対策動画`} allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" loading="lazy" allowFullScreen /> : <div className="video-placeholder" aria-label="YouTube埋め込み領域"><Play size={25} /></div>}
+                  </div>
                 </> : <div className="editor-empty"><span className="editor-empty-icon"><Swords size={22} /></span><p>対策対象を選択</p><span>左の一覧からファイターを選ぶと、メモを編集できます。</span></div>}
               </div>
             </div>
