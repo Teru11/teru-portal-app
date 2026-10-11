@@ -145,6 +145,13 @@ export default function Home() {
   const [saving, setSaving] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
+  /** 通知は4秒後に自動で閉じ、変更/手動閉じ時は前のタイマーを破棄します。 */
+  useEffect(() => {
+    if (!notice) return;
+    const timeoutId = window.setTimeout(() => setNotice(null), 4000);
+    return () => window.clearTimeout(timeoutId);
+  }, [notice]);
+
   /** 取得済みメモが現在選択中の自キャラに属する場合だけ画面へ反映します。 */
   const activeNotes = notesCharacterId === myCharacterId ? notes : [];
   const registeredCharacters = characters.filter((character) => character.is_registered);
