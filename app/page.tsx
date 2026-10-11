@@ -13,11 +13,9 @@ import {
   Gamepad2,
   Menu,
   Pencil,
-  Plus,
   Save,
   Search,
   Swords,
-  Trash2,
   X,
 } from "lucide-react";
 
@@ -81,7 +79,6 @@ export default function Home() {
   const [notes, setNotes] = useState<StrategyNote[]>([]);
   const [notesCharacterId, setNotesCharacterId] = useState<number | null>(null);
   const [draft, setDraft] = useState<{ noteId: number | null; content: string; url: string }>({ noteId: null, content: "", url: "" });
-  const [newCharacterId, setNewCharacterId] = useState("");
   const [search, setSearch] = useState("");
   const [myFighterSearch, setMyFighterSearch] = useState("");
   const [targetSearch, setTargetSearch] = useState("");
@@ -97,7 +94,6 @@ export default function Home() {
 
   const activeNotes = notesCharacterId === myCharacterId ? notes : [];
   const registeredCharacters = characters.filter((character) => character.is_registered);
-  const availableCharacters = characters.filter((character) => !character.is_registered);
   const selectedCharacter = characters.find((character) => character.id === myCharacterId);
   const selectedNote = activeNotes.find((note) => note.target_character_id === targetCharacterId);
   const targetCharacter = selectedNote && characters.find((character) => character.id === targetCharacterId);
@@ -128,7 +124,6 @@ export default function Home() {
         if (!active) return;
         setCharacters(result);
         setMyCharacterId(result.find((character) => character.is_registered)?.id ?? null);
-        setNewCharacterId(result.find((character) => !character.is_registered)?.id.toString() ?? "");
       })
       .catch((error: unknown) => {
         if (active) setNotice({ kind: "error", message: error instanceof Error ? error.message : "ファイターを取得できませんでした。" });
@@ -163,41 +158,6 @@ export default function Home() {
       active = false;
     };
   }, [myCharacterId]);
-
-  async function addCharacter() {
-    if (!newCharacterId) return;
-    setNotice(null);
-    try {
-      const created = await requestApi<{ id: number; character_id: number }>("/api/sumabura/user-characters", {
-        method: "POST",
-        body: JSON.stringify({ character_id: Number(newCharacterId) }),
-      });
-      const updated = await refreshCharacters();
-      setMyCharacterId(created.character_id);
-      setNewCharacterId(updated.find((character) => !character.is_registered)?.id.toString() ?? "");
-      setNotice({ kind: "success", message: `${updated.find((character) => character.id === created.character_id)?.name}を使用キャラに登録しました。` });
-    } catch (error) {
-      setNotice({ kind: "error", message: error instanceof Error ? error.message : "登録に失敗しました。" });
-    }
-  }
-
-  async function removeCharacter(character: Character) {
-    if (!window.confirm(`${character.name}の使用キャラ登録を解除しますか？`)) return;
-    setNotice(null);
-    try {
-      await requestApi<{ id: number; is_deleted: boolean }>(
-        `/api/sumabura/user-characters?character_id=${character.id}`,
-        { method: "DELETE" },
-      );
-      const updated = await refreshCharacters();
-      if (myCharacterId === character.id) {
-        setMyCharacterId(updated.find((item) => item.is_registered)?.id ?? null);
-      }
-      setNotice({ kind: "success", message: `${character.name}の登録を解除しました。` });
-    } catch (error) {
-      setNotice({ kind: "error", message: error instanceof Error ? error.message : "登録解除に失敗しました。" });
-    }
-  }
 
   async function saveNote() {
     if (myCharacterId === null || targetCharacterId === null || !selectedNote) return;
@@ -296,11 +256,9 @@ export default function Home() {
         <main className="main-content">
           <div className="page-heading">
             <div className="heading-row">
-              <div>
-                <h1>スマブラ</h1>
-              </div>
+              <h1>スマブラ</h1>
               <button className="directory-toggle" type="button" aria-expanded={directoryVisible} onClick={() => setDirectoryVisible((visible) => !visible)}>
-                {directoryVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                {directoryVisible ? <EyeOff size={15} /> : <Eye size={15} />}
                 ファイター一覧 {directoryVisible ? "非表示" : "表示"}
               </button>
             </div>
@@ -317,28 +275,18 @@ export default function Home() {
           <div className="feature-columns">
           <section className="section-block" aria-labelledby="my-fighters-title">
             <div className="section-heading">
-              <div className="section-title-wrap"><div><h2 id="my-fighters-title">使用ファイター</h2></div></div>
+              <div className="section-title-wrap"><div><h2 id="my-fighters-title">使用ファイター選択</h2></div></div>
             </div>
             <div className="my-fighters-panel">
               <label className="list-filter"><Search size={15} /><input value={myFighterSearch} onChange={(event) => setMyFighterSearch(event.target.value)} placeholder="略称で絞り込み..." aria-label="使用ファイターを略称で絞り込み" /></label>
               <div className="my-fighter-list">
-                {visibleMyFighters.map((character) => (
-                  <div className={`my-fighter${character.id === myCharacterId ? " my-fighter--selected" : ""}`} key={character.id}>
-                    <button className="my-fighter-select" type="button" onClick={() => setMyCharacterId(character.id)} aria-pressed={character.id === myCharacterId}>
-                      <FighterPortrait character={character} />
-                      <span className="my-fighter-name"><span>{character.name}</span><small>{character.nickname}</small><em>{character.note || "説明は未登録"}</em></span>
-                      {character.id === myCharacterId && <span className="selected-mark"><Check size={13} /></span>}
-                    </button>
-                    <button className="remove-fighter" type="button" title={`${character.name}の登録を解除`} aria-label={`${character.name}の登録を解除`} onClick={() => void removeCharacter(character)}><Trash2 size={15} /></button>
-                  </div>
-                ))}
+                {visibleMyFighters.map((character) => <button className={`my-fighter${character.id === myCharacterId ? " my-fighter--selected" : ""}`} type="button" onClick={() => setMyCharacterId(character.id)} aria-pressed={character.id === myCharacterId} key={character.id}>
+                  <FighterPortrait character={character} />
+                  <span className="my-fighter-name">{character.name}</span>
+                  <span className="my-fighter-note" title={character.note ?? ""}>{character.note || "—"}</span>
+                </button>)}
                 {!loading && registeredCharacters.length === 0 && <p className="empty-inline">まだ使用ファイターが登録されていません。</p>}
                 {registeredCharacters.length > 0 && visibleMyFighters.length === 0 && <p className="empty-inline">一致する使用ファイターがいません。</p>}
-              </div>
-              <div className="add-fighter-control">
-                <label className="sr-only" htmlFor="new-fighter">追加するファイター</label>
-                <span className="select-wrap"><select id="new-fighter" value={newCharacterId} onChange={(event) => setNewCharacterId(event.target.value)} disabled={availableCharacters.length === 0}><option value="">ファイターを選択</option>{availableCharacters.map((character) => <option value={character.id} key={character.id}>{character.name}</option>)}</select><ChevronDown size={15} /></span>
-                <button className="button button--outline" type="button" onClick={() => void addCharacter()} disabled={!newCharacterId}><Plus size={16} />追加</button>
               </div>
             </div>
           </section>
@@ -351,24 +299,23 @@ export default function Home() {
 
             <div className="matchup-layout">
               <div className="target-panel">
-                  <div className="target-panel-head"><span>対策対象ファイター</span></div>
+                <div className="target-picker">
                   <label className="list-filter target-filter"><Search size={15} /><input value={targetSearch} onChange={(event) => setTargetSearch(event.target.value)} placeholder="略称で絞り込み..." aria-label="対策対象を略称で絞り込み" /></label>
-                <div className="target-list" role="listbox" aria-label="対策対象ファイター">
+                  {targetSearch.trim() && <div className="target-results" role="listbox" aria-label="検索結果">
                     {visibleTargetNotes.map((note) => {
                     const character = characters.find((item) => item.id === note.target_character_id);
                     if (!character) return null;
-                    return <button className={`target-row${character.id === targetCharacterId ? " target-row--selected" : ""}`} type="button" role="option" aria-selected={character.id === targetCharacterId} onClick={() => setTargetCharacterId(character.id)} key={character.id}>
+                    return <button className="target-result" type="button" role="option" aria-selected={character.id === targetCharacterId} onClick={() => {
+                      setTargetCharacterId(character.id);
+                      setTargetSearch("");
+                    }} key={character.id}>
                       <FighterPortrait character={character} />
                       <span className="target-row-name">{character.name}<small>{character.nickname}</small></span>
-                      <span className={`note-status${note.content.trim() ? " note-status--done" : ""}`} title={note.content.trim() ? "メモあり" : "メモなし"} />
-                      <ChevronRight className="target-chevron" size={15} />
                     </button>;
                   })}
-                  {loading && <div className="loading-copy">ファイターを読み込み中...</div>}
-                  {!loading && myCharacterId !== null && notesCharacterId !== myCharacterId && <div className="loading-copy">対策を読み込み中...</div>}
-                  {!loading && myCharacterId !== null && notesCharacterId === myCharacterId && activeNotes.length === 0 && <div className="loading-copy">対策データがありません。</div>}
-                  {!loading && activeNotes.length > 0 && visibleTargetNotes.length === 0 && <div className="loading-copy">一致するファイターがいません。</div>}
-                  {!loading && myCharacterId === null && <div className="loading-copy">先に使用ファイターを登録してください。</div>}
+                    {!loading && visibleTargetNotes.length === 0 && <div className="target-results-empty">一致するファイターがいません。</div>}
+                    {loading && <div className="target-results-empty">ファイターを読み込み中...</div>}
+                  </div>}
                 </div>
               </div>
 
@@ -376,28 +323,30 @@ export default function Home() {
                 {targetCharacter ? <>
                   <div className="editor-heading">
                     <FighterPortrait character={targetCharacter} size="large" />
-                    <div className="editor-fighter-name"><span>VS. TARGET</span><h3>{targetCharacter.name}</h3><p>{targetCharacter.nickname} <span>·</span> #{String(targetCharacter.id).padStart(2, "0")}</p></div>
+                    <div className="editor-fighter-name"><h3>{targetCharacter.name}</h3><p>{targetCharacter.nickname} <span>·</span> #{String(targetCharacter.id).padStart(2, "0")}</p></div>
                     <span className="editor-card-icon"><Swords size={17} /></span>
                   </div>
-                  <label className="field-label" htmlFor="strategy-content">対策メモ <span>STRATEGY</span></label>
+                  <label className="field-label" htmlFor="strategy-content">対策メモ</label>
                   <textarea id="strategy-content" className="strategy-textarea" value={draftContent} onChange={(event) => selectedNote && setDraft({ noteId: selectedNote.id, content: event.target.value, url: draftUrl })} placeholder="立ち回り、警戒する技、確定反撃など..." disabled={!selectedNote} />
-                  <label className="field-label youtube-label" htmlFor="youtube-url">参考動画 <span>YOUTUBE URL</span></label>
+                  <label className="field-label youtube-label" htmlFor="youtube-url">YouTube URL</label>
                   <div className="url-field"><span className="youtube-play">▶</span><input id="youtube-url" type="url" value={draftUrl} onChange={(event) => selectedNote && setDraft({ noteId: selectedNote.id, content: draftContent, url: event.target.value })} placeholder="https://www.youtube.com/..." disabled={!selectedNote} /></div>
-                  <div className="editor-footer"><span>{selectedNote ? `更新 ${new Date(selectedNote.updated_at).toLocaleDateString("ja-JP")}` : "この組み合わせのメモがありません"}</span><button className="button button--primary" type="button" onClick={() => void saveNote()} disabled={!selectedNote || saving}><Save size={16} />{saving ? "保存中..." : "変更を保存"}</button></div>
+                  <div className="editor-footer editor-footer--actions"><button className="button button--primary" type="button" onClick={() => void saveNote()} disabled={!selectedNote || saving}><Save size={16} />{saving ? "保存中..." : "変更を保存"}</button></div>
                 </> : <div className="editor-empty"><span className="editor-empty-icon"><Swords size={22} /></span><p>対策対象を選択</p><span>左の一覧からファイターを選ぶと、メモを編集できます。</span></div>}
               </div>
             </div>
           </section>
 
-          <section className="section-block directory-section" aria-labelledby="directory-title">
-            <div className="section-heading section-heading--directory">
-              <div className="section-title-wrap"><div><h2 id="directory-title">ファイター一覧</h2></div></div>
+          <section className="section-block directory-section" aria-label="ファイター一覧">
+            {directoryVisible && <div className="section-heading section-heading--directory">
+              <div className="directory-title-row">
+                <div className="section-title-wrap"><div><h2 id="directory-title">ファイター一覧</h2></div></div>
+              </div>
+            </div>}
+            {directoryVisible && <>
               <div className="directory-controls">
                 <label className="directory-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="略称で絞り込み..." aria-label="ファイターを略称で検索" />{search && <button type="button" onClick={() => setSearch("")} aria-label="検索をクリア"><X size={14} /></button>}</label>
                 <label className="registered-filter"><input type="checkbox" checked={onlyRegistered} onChange={(event) => setOnlyRegistered(event.target.checked)} /><span>使用キャラのみ表示</span></label>
               </div>
-            </div>
-            {directoryVisible && <>
               <div className="directory-table-wrap">
                 <table className="fighter-table">
                   <thead><tr><th>ID</th><th>ファイター名</th><th>略称</th><th>使用</th><th>説明</th><th>編集</th></tr></thead>
