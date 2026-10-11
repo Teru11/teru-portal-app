@@ -166,34 +166,26 @@ export default function Home() {
   const visibleCharacters = characters.filter((character) => {
     const query = search.trim().toLocaleLowerCase("ja");
     return (!onlyRegistered || character.is_registered)
-      && (!query || character.nickname.toLocaleLowerCase("ja").includes(query));
+      && (!query || character.nickname.toLocaleLowerCase("ja") === query);
   });
   /** 使用ファイター欄では登録済みキャラだけを略称で絞り込みます。 */
+  const myFighterQuery = myFighterSearch.trim().toLocaleLowerCase("ja");
   const visibleMyFighters = registeredCharacters.filter((character) =>
-    character.nickname.toLocaleLowerCase("ja").includes(myFighterSearch.trim().toLocaleLowerCase("ja")),
+    !myFighterQuery || character.nickname.toLocaleLowerCase("ja") === myFighterQuery,
   );
   /**
-   * 略称の入力値を対象へ反映し、候補一覧なしで一致するファイターを選択します。
-   * 他の略称が入力値から始まる場合は、入力途中の誤選択を避けて確定を待ちます。
+   * 略称の入力値を対象へ反映し、完全一致するファイターを選択します。
    * @param {string} value 検索欄の略称
-   * @param {boolean} [confirm=false] Enterによる明示的な検索確定かどうか
    * @returns {void}
    */
-  function selectTargetFromSearch(value: string, confirm = false) {
+  function selectTargetFromSearch(value: string) {
     setTargetSearch(value);
     const query = value.trim().toLocaleLowerCase("ja");
     if (!query) return;
 
-    const matches = activeNotes.filter((note) =>
-      note.target_nickname.toLocaleLowerCase("ja").startsWith(query),
+    const selectedNote = activeNotes.find((note) =>
+      note.target_nickname.toLocaleLowerCase("ja") === query,
     );
-    const exactMatch = matches.find((note) => note.target_nickname.toLocaleLowerCase("ja") === query);
-    const hasLongerMatch = matches.some((note) => note.target_nickname.toLocaleLowerCase("ja") !== query);
-    const selectedNote = exactMatch && (!hasLongerMatch || confirm)
-      ? exactMatch
-      : confirm && matches.length === 1
-        ? matches[0]
-        : undefined;
 
     if (selectedNote) {
       setTargetCharacterId(selectedNote.target_character_id);
@@ -209,7 +201,7 @@ export default function Home() {
   function handleTargetSearchKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter") {
       event.preventDefault();
-      selectTargetFromSearch(targetSearch, true);
+      selectTargetFromSearch(targetSearch);
     }
   }
 
