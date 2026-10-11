@@ -227,7 +227,7 @@ h1 { margin-bottom: 2px; font-size: 27px; font-weight: 680; line-height: 1.3; }
 .legend-dot--registered { background: var(--mint); }
 .legend-dot--target { background: var(--accent); }
 .directory-total { margin-left: auto; color: #718098; font-family: var(--font-mono); font-size: 8px; letter-spacing: .08em; }
-.directory-table-wrap { width: 100%; max-width: 100%; max-height: 480px; overflow-x: hidden; overflow-y: auto; border: 1px solid var(--line); border-radius: 5px; scrollbar-color: #384760 transparent; scrollbar-width: thin; }
+.directory-table-wrap { width: 100%; max-width: 100%; max-height: 567px; overflow-x: hidden; overflow-y: auto; border: 1px solid var(--line); border-radius: 5px; scrollbar-color: #384760 transparent; scrollbar-width: thin; }
 .fighter-table { width: 100%; min-width: 0; border-collapse: collapse; table-layout: fixed; background: rgba(14, 22, 34, 0.8); }
 .fighter-table thead { position: sticky; z-index: 1; top: 0; }
 .fighter-table th { height: 34px; border-bottom: 1px solid #354258; background: #141e2d; padding: 0 6px; color: #98a7bb; font-size: 9px; font-weight: 550; text-align: left; white-space: nowrap; }
