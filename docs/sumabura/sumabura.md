@@ -128,52 +128,21 @@ APIは [../api-standard.md](../api-standard.md) の共通レスポンス形式�
 
 #### ファイター更新API（`PUT /api/sumabura/characters`）
 
-ファイターの `note` または `nickname` を更新する。
-1 リクエストで更新できる項目はどちらか一方とする。
+ファイターの `nickname`、`note`、使用キャラ登録状態を更新する。複数項目を1リクエストで更新できる。
 
 | 入力 | 場所 | 必須 | 型 | 制約 |
 | :--- | :--- | :---: | :--- | :--- |
 | `id` | Body | はい | integer | 更新対象のファイター ID |
-| `note` | Body | 条件付き | string \| null | `note` 更新時に指定。`null` でクリア |
-| `nickname` | Body | 条件付き | string | `nickname` 更新時に指定。1〜20 文字 |
+| `nickname` | Body | 条件付き | string | 略称。1〜20 文字 |
+| `note` | Body | 条件付き | string \| null | 説明。`null` でクリア |
+| `is_registered` | Body | 条件付き | boolean | `true` で使用キャラ登録、`false` で論理削除 |
 
-`note` と `nickname` の両方、またはいずれも指定されない場合は `400 BAD_REQUEST` とする。
-成功時の `data` は更新後のファイターオブジェクト（`id`、`name`、`nickname`、`note`）とする。
+いずれかの更新項目を1つ以上指定する。各項目は省略可能で、指定された項目のみ更新する。型・文字数が不正な場合は `400 BAD_REQUEST` とする。
+
+`is_registered: true` で有効な登録がなければ使用キャラ登録を作成し、その自キャラに不足している対策メモを全ファイター分作成する。既存の対策メモは保持し、登録とメモ作成は同一トランザクションで行う。`is_registered: false` は有効な使用キャラ登録を論理削除する。対策メモは削除しない。
+
+成功時の `data` は更新後のファイターオブジェクト（`id`、`name`、`nickname`、`note`、`is_registered`）とする。
 対象 ID が存在しない場合は `404 NOT_FOUND`。
-
-#### 使用キャラ登録API（`POST /api/sumabura/user-characters`）
-
-使用キャラを登録し、そのファイターを自キャラとする対策メモを全ファイター分作成する。対策メモは `my_character_id` に登録対象の `character_id`、`target_character_id` に各ファイターの ID を設定し、`content` は空文字、`youtube_url` は `null` で初期化する。使用キャラ登録と対策メモ作成は同一トランザクションで実行し、いずれかに失敗した場合はすべてロールバックする。
-
-| 入力 | 場所 | 必須 | 型 | 内容 |
-| :--- | :--- | :---: | :--- | :--- |
-| `character_id` | Body | はい | integer | 登録するファイター ID |
-
-成功時は `201 Created` とし、`data` に作成された使用キャラ登録の `id` と `character_id`、作成した対策メモ件数 `strategy_notes_created` を返す。
-
-```json
-{
-	"id": 1,
-	"character_id": 1,
-	"strategy_notes_created": 86
-}
-```
-
-`strategy_notes_created` は今回新規作成した対策メモ件数とする。既存メモがある組み合わせは保持し、重複作成しない。
-ファイターが存在しない場合は `404 NOT_FOUND`、有効な登録がすでにある場合は `400 BAD_REQUEST`。
-
-#### 使用キャラ削除API（`DELETE /api/sumabura/user-characters`）
-
-使用キャラ登録を論理削除する。`id` または `character_id` のいずれか一方を指定する。
-
-| 入力 | 場所 | 必須 | 型 | 内容 |
-| :--- | :--- | :---: | :--- | :--- |
-| `id` | Query | 条件付き | integer | 使用キャラ登録 ID |
-| `character_id` | Query | 条件付き | integer | ファイター ID |
-
-両方またはいずれも指定されない場合は `400 BAD_REQUEST`。
-成功時の `data` は `{ "id": 1, "is_deleted": true }` とする。
-対象が存在しない場合は `404 NOT_FOUND`。
 
 #### 対策メモ取得API（`GET /api/sumabura/strategy-notes`）
 

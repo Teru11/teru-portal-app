@@ -44,101 +44,88 @@ export async function getCharacters(
 
 export async function updateCharacter(
   id: number,
-  update: { note: string | null } | { nickname: string },
+  update: { note?: string | null; nickname?: string; isRegistered?: boolean },
 ) {
-  const result =
-    "note" in update
-      ? await getPool().query(
-          `UPDATE sumabura.characters SET note = $2 WHERE id = $1
-           RETURNING id, name, nickname, note`,
-          [id, update.note],
-        )
-      : await getPool().query(
-          `UPDATE sumabura.characters SET nickname = $2 WHERE id = $1
-           RETURNING id, name, nickname, note`,
-          [id, update.nickname],
-        );
-
-  if (!result.rows[0]) {
-    throw new ApiError(404, "NOT_FOUND", "ファイターが見つかりません。");
-  }
-  return result.rows[0];
-}
-
-export async function createUserCharacter(characterId: number) {
   const client = await getPool().connect();
   try {
     await client.query("BEGIN");
     const character = await client.query(
       "SELECT id FROM sumabura.characters WHERE id = $1",
-      [characterId],
+      [id],
     );
     if (!character.rows[0]) {
       throw new ApiError(404, "NOT_FOUND", "ファイターが見つかりません。");
     }
 
-    const existing = await client.query(
-      `SELECT id FROM sumabura.user_characters
-        WHERE character_id = $1 AND is_deleted = FALSE`,
-      [characterId],
-    );
-    if (existing.rows[0]) {
-      throw new ApiError(400, "BAD_REQUEST", "このファイターは登録済みです。");
+    const assignments: string[] = [];
+    const values: unknown[] = [id];
+    if (update.nickname !== undefined) {
+      values.push(update.nickname);
+      assignments.push(`nickname = $${values.length}`);
+    }
+    if (update.note !== undefined) {
+      values.push(update.note);
+      assignments.push(`note = $${values.length}`);
+    }
+    if (assignments.length > 0) {
+      await client.query(
+        `UPDATE sumabura.characters SET ${assignments.join(", ")} WHERE id = $1`,
+        values,
+      );
     }
 
-    const inserted = await client.query(
-      `INSERT INTO sumabura.user_characters (character_id, is_deleted)
-       VALUES ($1, FALSE) RETURNING id, character_id`,
-      [characterId],
-    );
-    const notes = await client.query(
-      `INSERT INTO sumabura.strategy_notes
-         (my_character_id, target_character_id, content, youtube_url)
-       SELECT $1, c.id, '', NULL
-         FROM sumabura.characters c
-        WHERE NOT EXISTS (
-          SELECT 1 FROM sumabura.strategy_notes sn
-           WHERE sn.my_character_id = $1
-             AND sn.target_character_id = c.id
-        )`,
-      [characterId],
-    );
+    if (update.isRegistered === true) {
+      const existing = await client.query(
+        `SELECT id FROM sumabura.user_characters
+          WHERE character_id = $1 AND is_deleted = FALSE
+          FOR UPDATE`,
+        [id],
+      );
+      if (!existing.rows[0]) {
+        await client.query(
+          `INSERT INTO sumabura.user_characters (character_id, is_deleted)
+           VALUES ($1, FALSE)`,
+          [id],
+        );
+      }
+      await client.query(
+        `INSERT INTO sumabura.strategy_notes
+           (my_character_id, target_character_id, content, youtube_url)
+         SELECT $1, c.id, '', NULL
+           FROM sumabura.characters c
+          WHERE NOT EXISTS (
+            SELECT 1 FROM sumabura.strategy_notes sn
+             WHERE sn.my_character_id = $1
+               AND sn.target_character_id = c.id
+          )`,
+        [id],
+      );
+    } else if (update.isRegistered === false) {
+      await client.query(
+        `UPDATE sumabura.user_characters SET is_deleted = TRUE
+          WHERE character_id = $1 AND is_deleted = FALSE`,
+        [id],
+      );
+    }
 
+    const result = await client.query(
+      `SELECT c.id, c.name, c.nickname, c.note,
+              EXISTS (
+                SELECT 1 FROM sumabura.user_characters uc
+                WHERE uc.character_id = c.id AND uc.is_deleted = FALSE
+              ) AS is_registered
+         FROM sumabura.characters c
+        WHERE c.id = $1`,
+      [id],
+    );
     await client.query("COMMIT");
-    return {
-      ...inserted.rows[0],
-      strategy_notes_created: notes.rowCount ?? 0,
-    };
+    return result.rows[0];
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
   } finally {
     client.release();
   }
-}
-
-export async function deleteUserCharacter(
-  key: { id: number } | { character_id: number },
-) {
-  const result =
-    "id" in key
-      ? await getPool().query(
-          `UPDATE sumabura.user_characters SET is_deleted = TRUE
-            WHERE id = $1 AND is_deleted = FALSE
-            RETURNING id, is_deleted`,
-          [key.id],
-        )
-      : await getPool().query(
-          `UPDATE sumabura.user_characters SET is_deleted = TRUE
-            WHERE character_id = $1 AND is_deleted = FALSE
-            RETURNING id, is_deleted`,
-          [key.character_id],
-        );
-
-  if (!result.rows[0]) {
-    throw new ApiError(404, "NOT_FOUND", "使用キャラ登録が見つかりません。");
-  }
-  return result.rows[0];
 }
 
 export async function getStrategyNotes(

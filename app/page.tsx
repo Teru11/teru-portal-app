@@ -85,7 +85,7 @@ export default function Home() {
   const [onlyRegistered, setOnlyRegistered] = useState(false);
   const [directoryVisible, setDirectoryVisible] = useState(true);
   const [editingCharacterId, setEditingCharacterId] = useState<number | null>(null);
-  const [characterDraft, setCharacterDraft] = useState({ nickname: "", note: "" });
+  const [characterDraft, setCharacterDraft] = useState({ nickname: "", note: "", isRegistered: false });
   const [savingCharacterId, setSavingCharacterId] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ kind: "error" | "success"; message: string } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -184,7 +184,7 @@ export default function Home() {
 
   function beginCharacterEdit(character: Character) {
     setEditingCharacterId(character.id);
-    setCharacterDraft({ nickname: character.nickname, note: character.note ?? "" });
+    setCharacterDraft({ nickname: character.nickname, note: character.note ?? "", isRegistered: character.is_registered });
   }
 
   async function saveCharacter(character: Character) {
@@ -197,7 +197,8 @@ export default function Home() {
 
     const nicknameChanged = nickname !== character.nickname;
     const noteChanged = note !== character.note;
-    if (!nicknameChanged && !noteChanged) {
+    const registrationChanged = characterDraft.isRegistered !== character.is_registered;
+    if (!nicknameChanged && !noteChanged && !registrationChanged) {
       setEditingCharacterId(null);
       return;
     }
@@ -205,19 +206,21 @@ export default function Home() {
     setSavingCharacterId(character.id);
     setNotice(null);
     try {
-      if (nicknameChanged) {
-        await requestApi<Character>("/api/sumabura/characters", {
-          method: "PUT",
-          body: JSON.stringify({ id: character.id, nickname }),
-        });
+      await requestApi<Character>("/api/sumabura/characters", {
+        method: "PUT",
+        body: JSON.stringify({
+          id: character.id,
+          nickname,
+          note,
+          is_registered: characterDraft.isRegistered,
+        }),
+      });
+      const updated = await refreshCharacters();
+      if (myCharacterId === character.id && !characterDraft.isRegistered) {
+        setMyCharacterId(updated.find((item) => item.is_registered)?.id ?? null);
+      } else if (myCharacterId === null && characterDraft.isRegistered) {
+        setMyCharacterId(character.id);
       }
-      if (noteChanged) {
-        await requestApi<Character>("/api/sumabura/characters", {
-          method: "PUT",
-          body: JSON.stringify({ id: character.id, note }),
-        });
-      }
-      await refreshCharacters();
       setEditingCharacterId(null);
       setNotice({ kind: "success", message: `${character.name}のファイター情報を更新しました。` });
     } catch (error) {
@@ -323,7 +326,7 @@ export default function Home() {
                 {targetCharacter ? <>
                   <div className="editor-heading">
                     <FighterPortrait character={targetCharacter} size="large" />
-                    <div className="editor-fighter-name"><h3>{targetCharacter.name}</h3><p>{targetCharacter.nickname} <span>·</span> #{String(targetCharacter.id).padStart(2, "0")}</p></div>
+                    <div className="editor-fighter-name"><h3>{targetCharacter.name}</h3></div>
                     <span className="editor-card-icon"><Swords size={17} /></span>
                   </div>
                   <label className="field-label" htmlFor="strategy-content">対策メモ</label>
@@ -359,7 +362,7 @@ export default function Home() {
                           if (activeNotes.some((note) => note.target_character_id === character.id)) setTargetCharacterId(character.id);
                         }}><FighterPortrait character={character} /><span>{character.name}</span></button></td>
                         <td>{isEditing ? <input className="table-edit-input" value={characterDraft.nickname} maxLength={20} onChange={(event) => setCharacterDraft((current) => ({ ...current, nickname: event.target.value }))} aria-label={`${character.name}の略称`} /> : <span className="table-nickname">{character.nickname}</span>}</td>
-                        <td>{character.is_registered ? <span className="registered-check" title="使用キャラ"><Check size={15} /></span> : <span className="not-registered" />}</td>
+                        <td>{isEditing ? <input className="table-registration-input" type="checkbox" checked={characterDraft.isRegistered} onChange={(event) => setCharacterDraft((current) => ({ ...current, isRegistered: event.target.checked }))} aria-label={`${character.name}の使用キャラ設定`} /> : character.is_registered ? <span className="registered-check" title="使用キャラ"><Check size={15} /></span> : <span className="not-registered" />}</td>
                         <td className="table-note-cell">{isEditing ? <textarea className="table-edit-note" value={characterDraft.note} onChange={(event) => setCharacterDraft((current) => ({ ...current, note: event.target.value }))} aria-label={`${character.name}の説明`} /> : <span title={character.note ?? ""}>{character.note || "—"}</span>}</td>
                         <td>{isEditing ? <span className="table-edit-actions"><button className="table-save" type="button" onClick={() => void saveCharacter(character)} disabled={savingCharacterId === character.id} aria-label="ファイター情報を更新"><Save size={15} /></button><button className="table-cancel" type="button" onClick={() => setEditingCharacterId(null)} aria-label="編集をキャンセル"><X size={15} /></button></span> : <button className="table-edit-button" type="button" onClick={() => beginCharacterEdit(character)} aria-label={`${character.name}を編集`} title="編集"><Pencil size={15} /></button>}</td>
                       </tr>;

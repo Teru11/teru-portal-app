@@ -45,7 +45,7 @@ HTTP メソッド、処理内容（SQL）、Prisma（ORM）メソッド、およ
 例:
 
 - `GET /api/sumabura/characters`：ファイターマスター一覧取得
-- `GET /api/sumabura/user-characters`：使用キャラ一覧取得
+- `PUT /api/sumabura/characters`：ファイター情報・使用キャラ登録状態更新
 - `POST /api/sumabura/strategy-notes`：対策メモ新規作成
 - `PUT /api/sumabura/strategy-notes`：対策メモ更新
 - `DELETE /api/sumabura/strategy-notes`：対策メモ削除
