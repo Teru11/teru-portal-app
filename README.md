@@ -43,6 +43,13 @@ pnpm dev
 
 ブラウザーで [http://localhost:3000](http://localhost:3000) を開く。
 
+### 5. 本番ビルドを起動（Windows）
+```sh
+pnpm build
+```
+
+ビルド完了後、プロジェクトルートの`start.bat`を実行する。ビルド済みのNext.jsサーバーが起動し、[http://localhost:3000](http://localhost:3000)で利用できる。終了するときは起動したウィンドウで`Ctrl+C`を押す。
+
 ## 課題管理
 * 開発タスクや改善項目は Redmine または GitHub Issues 等で管理する
 * 実装方針・設計変更は関連するドキュメントと同期して更新する
