@@ -94,7 +94,13 @@ export async function createUserCharacter(characterId: number) {
     const notes = await client.query(
       `INSERT INTO sumabura.strategy_notes
          (my_character_id, target_character_id, content, youtube_url)
-       SELECT $1, id, '', NULL FROM sumabura.characters`,
+       SELECT $1, c.id, '', NULL
+         FROM sumabura.characters c
+        WHERE NOT EXISTS (
+          SELECT 1 FROM sumabura.strategy_notes sn
+           WHERE sn.my_character_id = $1
+             AND sn.target_character_id = c.id
+        )`,
       [characterId],
     );
 

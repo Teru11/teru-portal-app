@@ -8,12 +8,14 @@ import {
   ChevronDown,
   ChevronRight,
   CircleHelp,
+  Eye,
+  EyeOff,
   Gamepad2,
   Menu,
+  Pencil,
   Plus,
   Save,
   Search,
-  Shield,
   Swords,
   Trash2,
   X,
@@ -81,6 +83,13 @@ export default function Home() {
   const [draft, setDraft] = useState<{ noteId: number | null; content: string; url: string }>({ noteId: null, content: "", url: "" });
   const [newCharacterId, setNewCharacterId] = useState("");
   const [search, setSearch] = useState("");
+  const [myFighterSearch, setMyFighterSearch] = useState("");
+  const [targetSearch, setTargetSearch] = useState("");
+  const [onlyRegistered, setOnlyRegistered] = useState(false);
+  const [directoryVisible, setDirectoryVisible] = useState(true);
+  const [editingCharacterId, setEditingCharacterId] = useState<number | null>(null);
+  const [characterDraft, setCharacterDraft] = useState({ nickname: "", note: "" });
+  const [savingCharacterId, setSavingCharacterId] = useState<number | null>(null);
   const [notice, setNotice] = useState<{ kind: "error" | "success"; message: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -96,8 +105,15 @@ export default function Home() {
   const draftUrl = selectedNote && draft.noteId === selectedNote.id ? draft.url : selectedNote?.youtube_url ?? "";
   const visibleCharacters = characters.filter((character) => {
     const query = search.trim().toLocaleLowerCase("ja");
-    return !query || `${character.name} ${character.nickname} ${character.id}`.toLocaleLowerCase("ja").includes(query);
+    return (!onlyRegistered || character.is_registered)
+      && (!query || character.nickname.toLocaleLowerCase("ja").includes(query));
   });
+  const visibleMyFighters = registeredCharacters.filter((character) =>
+    character.nickname.toLocaleLowerCase("ja").includes(myFighterSearch.trim().toLocaleLowerCase("ja")),
+  );
+  const visibleTargetNotes = activeNotes.filter((note) =>
+    note.target_nickname.toLocaleLowerCase("ja").includes(targetSearch.trim().toLocaleLowerCase("ja")),
+  );
 
   async function refreshCharacters() {
     const result = await requestApi<Character[]>("/api/sumabura/characters");
@@ -206,6 +222,56 @@ export default function Home() {
     }
   }
 
+  function beginCharacterEdit(character: Character) {
+    setEditingCharacterId(character.id);
+    setCharacterDraft({ nickname: character.nickname, note: character.note ?? "" });
+  }
+
+  async function saveCharacter(character: Character) {
+    const nickname = characterDraft.nickname.trim();
+    const note = characterDraft.note || null;
+    if (!nickname || nickname.length > 20) {
+      setNotice({ kind: "error", message: "略称は1〜20文字で入力してください。" });
+      return;
+    }
+
+    const nicknameChanged = nickname !== character.nickname;
+    const noteChanged = note !== character.note;
+    if (!nicknameChanged && !noteChanged) {
+      setEditingCharacterId(null);
+      return;
+    }
+
+    setSavingCharacterId(character.id);
+    setNotice(null);
+    try {
+      if (nicknameChanged) {
+        await requestApi<Character>("/api/sumabura/characters", {
+          method: "PUT",
+          body: JSON.stringify({ id: character.id, nickname }),
+        });
+      }
+      if (noteChanged) {
+        await requestApi<Character>("/api/sumabura/characters", {
+          method: "PUT",
+          body: JSON.stringify({ id: character.id, note }),
+        });
+      }
+      await refreshCharacters();
+      setEditingCharacterId(null);
+      setNotice({ kind: "success", message: `${character.name}のファイター情報を更新しました。` });
+    } catch (error) {
+      try {
+        await refreshCharacters();
+      } catch {
+        setNotice({ kind: "error", message: "更新に失敗し、最新のファイター情報も取得できませんでした。" });
+      }
+      setNotice({ kind: "error", message: error instanceof Error ? error.message : "ファイター情報の更新に失敗しました。" });
+    } finally {
+      setSavingCharacterId(null);
+    }
+  }
+
   return (
     <div className={`portal-shell${sidebarOpen ? "" : " portal-shell--sidebar-closed"}`}>
       <header className="topbar">
@@ -216,7 +282,6 @@ export default function Home() {
           <span className="brand-mark"><Gamepad2 size={19} strokeWidth={2.2} /></span>
           <span className="brand-name">teru-portal</span>
         </div>
-        <div className="topbar-meta"><span className="connection-dot" /> PERSONAL WORKSPACE</div>
       </header>
 
       <div className="portal-body">
@@ -230,14 +295,14 @@ export default function Home() {
 
         <main className="main-content">
           <div className="page-heading">
-            <div className="breadcrumbs"><span>ワークスペース</span><ChevronRight size={13} /><span>スマブラ</span></div>
             <div className="heading-row">
               <div>
-                <p className="eyebrow">MATCHUP NOTEBOOK <span>·</span> 01</p>
                 <h1>スマブラ</h1>
-                <p className="page-description">ファイターごとの対策と参考動画をまとめる</p>
               </div>
-              <div className="heading-stamp"><Shield size={16} /><span>PERSONAL<br />DATABASE</span></div>
+              <button className="directory-toggle" type="button" aria-expanded={directoryVisible} onClick={() => setDirectoryVisible((visible) => !visible)}>
+                {directoryVisible ? <EyeOff size={16} /> : <Eye size={16} />}
+                ファイター一覧 {directoryVisible ? "非表示" : "表示"}
+              </button>
             </div>
           </div>
 
@@ -249,24 +314,26 @@ export default function Home() {
             </div>
           )}
 
+          <div className="feature-columns">
           <section className="section-block" aria-labelledby="my-fighters-title">
             <div className="section-heading">
-              <div className="section-title-wrap"><span className="section-index">01</span><div><h2 id="my-fighters-title">使用ファイター</h2><p>対策メモを管理する自分のファイター</p></div></div>
-              <span className="section-count">{registeredCharacters.length} FIGHTERS</span>
+              <div className="section-title-wrap"><div><h2 id="my-fighters-title">使用ファイター</h2></div></div>
             </div>
             <div className="my-fighters-panel">
+              <label className="list-filter"><Search size={15} /><input value={myFighterSearch} onChange={(event) => setMyFighterSearch(event.target.value)} placeholder="略称で絞り込み..." aria-label="使用ファイターを略称で絞り込み" /></label>
               <div className="my-fighter-list">
-                {registeredCharacters.map((character) => (
+                {visibleMyFighters.map((character) => (
                   <div className={`my-fighter${character.id === myCharacterId ? " my-fighter--selected" : ""}`} key={character.id}>
                     <button className="my-fighter-select" type="button" onClick={() => setMyCharacterId(character.id)} aria-pressed={character.id === myCharacterId}>
                       <FighterPortrait character={character} />
-                      <span className="my-fighter-name">{character.name}<small>{character.nickname}</small></span>
+                      <span className="my-fighter-name"><span>{character.name}</span><small>{character.nickname}</small><em>{character.note || "説明は未登録"}</em></span>
                       {character.id === myCharacterId && <span className="selected-mark"><Check size={13} /></span>}
                     </button>
                     <button className="remove-fighter" type="button" title={`${character.name}の登録を解除`} aria-label={`${character.name}の登録を解除`} onClick={() => void removeCharacter(character)}><Trash2 size={15} /></button>
                   </div>
                 ))}
                 {!loading && registeredCharacters.length === 0 && <p className="empty-inline">まだ使用ファイターが登録されていません。</p>}
+                {registeredCharacters.length > 0 && visibleMyFighters.length === 0 && <p className="empty-inline">一致する使用ファイターがいません。</p>}
               </div>
               <div className="add-fighter-control">
                 <label className="sr-only" htmlFor="new-fighter">追加するファイター</label>
@@ -278,15 +345,16 @@ export default function Home() {
 
           <section className="section-block" aria-labelledby="matchup-title">
             <div className="section-heading">
-              <div className="section-title-wrap"><span className="section-index">02</span><div><h2 id="matchup-title">対策対象ファイター</h2><p>{selectedCharacter ? `${selectedCharacter.name}から見た対戦メモ` : "使用ファイターを登録すると対策を編集できます"}</p></div></div>
+              <div className="section-title-wrap"><div><h2 id="matchup-title">対策対象ファイター</h2></div></div>
               {selectedCharacter && <span className="active-fighter-label"><span>MY FIGHTER</span>{selectedCharacter.name}<ChevronDown size={13} /></span>}
             </div>
 
             <div className="matchup-layout">
               <div className="target-panel">
-                  <div className="target-panel-head"><span>対戦カード</span><span>{activeNotes.length.toString().padStart(2, "0")}</span></div>
+                  <div className="target-panel-head"><span>対策対象ファイター</span></div>
+                  <label className="list-filter target-filter"><Search size={15} /><input value={targetSearch} onChange={(event) => setTargetSearch(event.target.value)} placeholder="略称で絞り込み..." aria-label="対策対象を略称で絞り込み" /></label>
                 <div className="target-list" role="listbox" aria-label="対策対象ファイター">
-                    {activeNotes.map((note) => {
+                    {visibleTargetNotes.map((note) => {
                     const character = characters.find((item) => item.id === note.target_character_id);
                     if (!character) return null;
                     return <button className={`target-row${character.id === targetCharacterId ? " target-row--selected" : ""}`} type="button" role="option" aria-selected={character.id === targetCharacterId} onClick={() => setTargetCharacterId(character.id)} key={character.id}>
@@ -299,6 +367,7 @@ export default function Home() {
                   {loading && <div className="loading-copy">ファイターを読み込み中...</div>}
                   {!loading && myCharacterId !== null && notesCharacterId !== myCharacterId && <div className="loading-copy">対策を読み込み中...</div>}
                   {!loading && myCharacterId !== null && notesCharacterId === myCharacterId && activeNotes.length === 0 && <div className="loading-copy">対策データがありません。</div>}
+                  {!loading && activeNotes.length > 0 && visibleTargetNotes.length === 0 && <div className="loading-copy">一致するファイターがいません。</div>}
                   {!loading && myCharacterId === null && <div className="loading-copy">先に使用ファイターを登録してください。</div>}
                 </div>
               </div>
@@ -322,22 +391,37 @@ export default function Home() {
 
           <section className="section-block directory-section" aria-labelledby="directory-title">
             <div className="section-heading section-heading--directory">
-              <div className="section-title-wrap"><span className="section-index">03</span><div><h2 id="directory-title">ファイター一覧</h2><p>全ファイターから対策対象を検索</p></div></div>
-              <label className="directory-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="名前・略称で検索" aria-label="ファイターを検索" />{search && <button type="button" onClick={() => setSearch("")} aria-label="検索をクリア"><X size={14} /></button>}</label>
+              <div className="section-title-wrap"><div><h2 id="directory-title">ファイター一覧</h2></div></div>
+              <div className="directory-controls">
+                <label className="directory-search"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="略称で絞り込み..." aria-label="ファイターを略称で検索" />{search && <button type="button" onClick={() => setSearch("")} aria-label="検索をクリア"><X size={14} /></button>}</label>
+                <label className="registered-filter"><input type="checkbox" checked={onlyRegistered} onChange={(event) => setOnlyRegistered(event.target.checked)} /><span>使用キャラのみ表示</span></label>
+              </div>
             </div>
-            <div className="fighter-grid">
-              {visibleCharacters.map((character) => <button type="button" className={`fighter-tile${character.id === targetCharacterId ? " fighter-tile--selected" : ""}${character.is_registered ? " fighter-tile--registered" : ""}`} key={character.id} onClick={() => {
-                if (activeNotes.some((note) => note.target_character_id === character.id)) setTargetCharacterId(character.id);
-              }} title={character.is_registered ? `${character.name} · 使用ファイター` : character.name}>
-                <FighterPortrait character={character} />
-                <span className="fighter-tile-name">{character.name}</span>
-                <span className="fighter-tile-nickname">{character.nickname}</span>
-                {character.id === targetCharacterId && <span className="tile-check"><Check size={11} /></span>}
-              </button>)}
-              {visibleCharacters.length === 0 && <p className="empty-inline">一致するファイターがいません。</p>}
-            </div>
-            <div className="directory-foot"><span><span className="legend-dot legend-dot--registered" /> 使用ファイター</span><span><span className="legend-dot legend-dot--target" /> 選択中の対策対象</span><span className="directory-total">{visibleCharacters.length} / {characters.length} FIGHTERS</span></div>
+            {directoryVisible && <>
+              <div className="directory-table-wrap">
+                <table className="fighter-table">
+                  <thead><tr><th>ID</th><th>ファイター名</th><th>略称</th><th>使用</th><th>説明</th><th>編集</th></tr></thead>
+                  <tbody>
+                    {visibleCharacters.map((character) => {
+                      const isEditing = editingCharacterId === character.id;
+                      return <tr className={`${character.is_registered ? "fighter-table-row--registered" : ""}${character.id === targetCharacterId ? " fighter-table-row--target" : ""}`} key={character.id}>
+                        <td className="fighter-id">{character.id}</td>
+                        <td><button className="table-fighter-name" type="button" onClick={() => {
+                          if (activeNotes.some((note) => note.target_character_id === character.id)) setTargetCharacterId(character.id);
+                        }}><FighterPortrait character={character} /><span>{character.name}</span></button></td>
+                        <td>{isEditing ? <input className="table-edit-input" value={characterDraft.nickname} maxLength={20} onChange={(event) => setCharacterDraft((current) => ({ ...current, nickname: event.target.value }))} aria-label={`${character.name}の略称`} /> : <span className="table-nickname">{character.nickname}</span>}</td>
+                        <td>{character.is_registered ? <span className="registered-check" title="使用キャラ"><Check size={15} /></span> : <span className="not-registered" />}</td>
+                        <td className="table-note-cell">{isEditing ? <textarea className="table-edit-note" value={characterDraft.note} onChange={(event) => setCharacterDraft((current) => ({ ...current, note: event.target.value }))} aria-label={`${character.name}の説明`} /> : <span title={character.note ?? ""}>{character.note || "—"}</span>}</td>
+                        <td>{isEditing ? <span className="table-edit-actions"><button className="table-save" type="button" onClick={() => void saveCharacter(character)} disabled={savingCharacterId === character.id} aria-label="ファイター情報を更新"><Save size={15} /></button><button className="table-cancel" type="button" onClick={() => setEditingCharacterId(null)} aria-label="編集をキャンセル"><X size={15} /></button></span> : <button className="table-edit-button" type="button" onClick={() => beginCharacterEdit(character)} aria-label={`${character.name}を編集`} title="編集"><Pencil size={15} /></button>}</td>
+                      </tr>;
+                    })}
+                    {visibleCharacters.length === 0 && <tr><td colSpan={6} className="table-empty">一致するファイターがいません。</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </>}
           </section>
+          </div>
 
           <footer className="page-footer"><span>TERU PORTAL <span>·</span> SUMABURA NOTEBOOK</span><span>LOCAL WORKSPACE</span></footer>
         </main>

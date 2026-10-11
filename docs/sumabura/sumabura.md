@@ -159,7 +159,7 @@ APIは [../api-standard.md](../api-standard.md) の共通レスポンス形式�
 }
 ```
 
-`strategy_notes_created` は登録処理時点の `characters` 件数とする。
+`strategy_notes_created` は今回新規作成した対策メモ件数とする。既存メモがある組み合わせは保持し、重複作成しない。
 ファイターが存在しない場合は `404 NOT_FOUND`、有効な登録がすでにある場合は `400 BAD_REQUEST`。
 
 #### 使用キャラ削除API（`DELETE /api/sumabura/user-characters`）
