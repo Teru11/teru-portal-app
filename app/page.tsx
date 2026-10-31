@@ -16,6 +16,7 @@ import {
   Play,
   Save,
   Search,
+  Shuffle,
   Swords,
   X,
 } from "lucide-react";
@@ -173,6 +174,12 @@ export default function Home() {
   const visibleMyFighters = registeredCharacters.filter((character) =>
     !myFighterQuery || character.nickname.toLocaleLowerCase("ja") === myFighterQuery,
   );
+  /** 登録済みの使用キャラからランダムに選択します。 */
+  function selectRandomMyFighter() {
+    if (registeredCharacters.length === 0) return;
+    const index = Math.floor(Math.random() * registeredCharacters.length);
+    setMyCharacterId(registeredCharacters[index].id);
+  }
   /**
    * 略称の入力値を対象へ反映し、完全一致するファイターを選択します。
    * @param {string} value 検索欄の略称
@@ -402,6 +409,9 @@ export default function Home() {
           <section className="section-block" aria-labelledby="my-fighters-title">
             <div className="section-heading">
               <div className="section-title-wrap"><div><h2 id="my-fighters-title">使用ファイター選択</h2></div></div>
+              <button className="button button--outline" type="button" onClick={selectRandomMyFighter} disabled={loading || registeredCharacters.length === 0}>
+                <Shuffle size={14} />ランダム選択
+              </button>
             </div>
             <div className="my-fighters-panel">
               <label className="list-filter"><Search size={15} /><input value={myFighterSearch} onChange={(event) => setMyFighterSearch(event.target.value)} placeholder="略称で絞り込み..." aria-label="使用ファイターを略称で絞り込み" /></label>
